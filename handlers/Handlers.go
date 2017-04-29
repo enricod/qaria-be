@@ -58,7 +58,7 @@ func Misure(w http.ResponseWriter, r *http.Request) {
 	stazioneId, _ := strconv.Atoi(vars["StazioneId"])
 	inquinante := vars["Inquinante"]
 
-	log.Printf("caricamento misure per stazione %v e inquinante %v", stazioneId, inquinante)
+
 	stazionePtr := stazioneFind(stazioniElenco(), stazioneId)
 	if stazionePtr != nil {
 		misure, err := dbLeggiMisure(stazionePtr, inquinante)
@@ -88,6 +88,8 @@ func Misure(w http.ResponseWriter, r *http.Request) {
 func dbLeggiMisure(staz *model.Stazione, inq string) ([]*model.Misura, error) {
 
 	stazId := strconv.Itoa(staz.StazioneId)
+
+	log.Printf("DB - caricamento misure per stazione %v e inquinante %v", stazId, inq)
 	rows, err := db.Db.Query("SELECT id, dataStr, valore, inquinante, stazioneId FROM misura " +
 		" WHERE stazioneId=? AND inquinante=? ORDER by dataStr DESC",
 		stazId, inq)

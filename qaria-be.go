@@ -1,8 +1,8 @@
 package main
 
 import (
-	"log"
 	"flag"
+	"log"
 	"net/http"
 
 	"github.com/enricod/qaria-be/db"
@@ -17,5 +17,5 @@ func main() {
 	router := router.NewRouter()
 
 	log.Printf("Avvio server su porta %v\n", *port)
-	log.Fatal(http.ListenAndServe(":" + *port, router))
+	log.Fatal(http.ListenAndServe(":"+*port, router))
 }

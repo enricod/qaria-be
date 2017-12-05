@@ -3,36 +3,20 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/enricod/qaria-be/db"
+	"github.com/enricod/qaria-model"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"strconv"
-	"github.com/gorilla/mux"
-	_ "github.com/go-sql-driver/mysql"
-	"github.com/enricod/qaria-be/db"
-	"github.com/enricod/qaria-be/model"
 )
-
 
 func Index(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "Welcome!")
 }
 
-func stazioniElenco() []model.Stazione {
-	rezzato := model.Stazione{StazioneId:661,
-		Nome:"Rezzato",
-		Inquinanti:"PM10,NO2,CO",
-		Url:"http://www2.arpalombardia.it/sites/QAria/_layouts/15/QAria/DettaglioStazione.aspx?IdStaz=661"}
-
-	milano := model.Stazione{StazioneId:539,
-		Nome:"Milano Liguria",
-		Inquinanti:"NO2,CO",
-		Url:"http://www2.arpalombardia.it/sites/qaria/_layouts/15/qaria/DettaglioStazione.aspx?zona=MI&comune=451&IdStaz=539&isPDV=True"}
-
-	stazioni := []model.Stazione{rezzato, milano }
-	return stazioni
-}
-
-func stazioneFind(stazioni []model.Stazione, stazId int) *model.Stazione {
+func stazioneFind(stazioni []qariamodel.Stazione, stazId int) *qariamodel.Stazione {
 	for _, s := range stazioni {
 		if s.StazioneId == stazId {
 			return &s
@@ -42,8 +26,8 @@ func stazioneFind(stazioni []model.Stazione, stazId int) *model.Stazione {
 }
 
 func StazioniIndex(w http.ResponseWriter, r *http.Request) {
-	stazioni := stazioniElenco()
-	stazioniResp := model.StazioniResp{stazioni}
+	stazioni := qariamodel.ElencoStazioni()
+	stazioniResp := qariamodel.StazioniResp{stazioni}
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -58,19 +42,18 @@ func Misure(w http.ResponseWriter, r *http.Request) {
 	stazioneId, _ := strconv.Atoi(vars["StazioneId"])
 	inquinante := vars["Inquinante"]
 
-
-	stazionePtr := stazioneFind(stazioniElenco(), stazioneId)
+	stazionePtr := stazioneFind(qariamodel.ElencoStazioni(), stazioneId)
 	if stazionePtr != nil {
 		misure, err := dbLeggiMisure(stazionePtr, inquinante)
-		if (err != nil) {
+		if err != nil {
 			log.Fatal(err)
 		}
 
-		var slice []model.Misura
+		var slice []qariamodel.Misura
 		for _, mPtr := range misure {
 			slice = append(slice, *mPtr)
 		}
-		misureResp := model.MisureResp{slice}
+		misureResp := qariamodel.MisureResp{slice}
 
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -85,22 +68,23 @@ func Misure(w http.ResponseWriter, r *http.Request) {
 /**
  * leggi dal database le misure di una stazione
  */
-func dbLeggiMisure(staz *model.Stazione, inq string) ([]*model.Misura, error) {
+func dbLeggiMisure(staz *qariamodel.Stazione, inq string) ([]*qariamodel.Misura, error) {
 
 	stazId := strconv.Itoa(staz.StazioneId)
 
 	log.Printf("DB - caricamento misure per stazione %v e inquinante %v", stazId, inq)
-	rows, err := db.Db.Query("SELECT id, dataStr, valore, inquinante, stazioneId FROM misura " +
-		" WHERE stazioneId=? AND inquinante=? ORDER by dataStr DESC",
+	rows, err := db.Db.Query("SELECT id, dataStr, valore, inquinante, stazioneId FROM misura "+
+		" WHERE stazioneId=? AND inquinante=? "+
+		" ORDER by dataStr DESC LIMIT 0,20",
 		stazId, inq)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	bks := make([]*model.Misura, 0)
+	bks := make([]*qariamodel.Misura, 0)
 	for rows.Next() {
-		bk := new(model.Misura)
+		bk := new(qariamodel.Misura)
 		err := rows.Scan(&bk.Id, &bk.DataMisura, &bk.Valore, &bk.Inquinante, &bk.StazioneId)
 		if err != nil {
 			return nil, err
@@ -111,21 +95,4 @@ func dbLeggiMisure(staz *model.Stazione, inq string) ([]*model.Misura, error) {
 		return nil, err
 	}
 	return bks, nil
-
-	/*
-	m1 := Misura{
-		DataMisura:"20170502",
-		Inquinante:inq,
-		Valore:2.0,
-		StazioneId:staz.StazioneId}
-
-	m2 := Misura{
-		DataMisura:"20170502",
-		Inquinante:inq,
-		Valore:2.0,
-		StazioneId:staz.StazioneId}
-	result := []Misura{m1, m2 }
-	return result
-	*/
 }
-
